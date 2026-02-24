@@ -411,6 +411,11 @@ class ApiService {
     return (data as List).cast<dynamic>();
   }
 
+  Future<List<dynamic>> getAllSubscriptions() async {
+    final data = await _request('/api/subscriptions');
+    return (data as List).cast<dynamic>();
+  }
+
   Future<void> runExpiryCheck() async {
     await _request('/api/cron/check-expiring', method: 'POST');
   }

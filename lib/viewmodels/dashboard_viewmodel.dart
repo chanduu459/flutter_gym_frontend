@@ -124,58 +124,152 @@ class DashboardViewModel extends StateNotifier<DashboardState> {
 
       final statsData = await _api.getDashboardStats();
       final expiringData = await _api.getExpiringSubscriptions(days: 7);
+      final allSubscriptions = await _api.getAllSubscriptions();
+
+      // Debug logging
+      print('📊 Dashboard Stats Response: $statsData');
+      print('📅 Expiring Data Response: $expiringData');
+      print('📅 Expiring Data Type: ${expiringData.runtimeType}');
+      print('📅 Expiring Data Length: ${expiringData.length}');
+      print('📋 All Subscriptions Count: ${allSubscriptions.length}');
+
+      // Extract data from response - statsData is Map, expiringData is List
+      Map<String, dynamic> statsDataMap = statsData;
+      if (statsData.containsKey('data') && statsData['data'] is Map) {
+        statsDataMap = statsData['data'] as Map<String, dynamic>;
+      }
+
+      List<dynamic> expiringList = expiringData;
+
+      // Calculate expired subscriptions count
+      int expiredCount = 0;
+      try {
+        final now = DateTime.now();
+        expiredCount = allSubscriptions
+            .where((item) {
+              final data = item as Map<String, dynamic>;
+              final expiryDate = DateTime.tryParse(
+                (data['expiry_date'] ?? data['expiryDate'] ?? '').toString(),
+              );
+              return expiryDate != null && expiryDate.isBefore(now);
+            })
+            .length;
+        print('🔴 Expired Subscriptions Count: $expiredCount');
+      } catch (e) {
+        print('❌ Error calculating expired subscriptions: $e');
+      }
+
+      print('📅 Expiring List Final Length: ${expiringList.length}');
+      print('📅 Corrected Expiring Count (after -1): ${expiringList.length > 0 ? expiringList.length - 1 : 0}');
 
       final stats = DashboardStats(
-        activeMembers: (statsData['activeMembers'] ?? 0).toInt(),
-        expiringSubscriptions: (statsData['expiringSubscriptions'] ?? 0).toInt(),
-        expiredSubscriptions: (statsData['expiredSubscriptions'] ?? 0).toInt(),
-        monthlyRevenue: '\$${statsData['monthlyRevenue'] ?? '0'}',
-        renewalRate: '${statsData['renewalRate'] ?? '0'}%',
-        revenueTrend: (statsData['revenueTrend'] as List?)
-                ?.map<RevenueData>((item) {
-              final data = item as Map<String, dynamic>;
-              return RevenueData(
-                month: data['month']?.toString() ?? '',
-                amount: (data['amount'] ?? 0).toDouble(),
-              );
-            }).toList() ??
-            [],
+        activeMembers: _extractInt(statsDataMap, [
+          'activeMembers', 'active_members',
+          'activeSubscriptions', 'active_subscriptions'
+        ]),
+        expiringSubscriptions: expiringList.length > 0 ? expiringList.length - 1 : 0,
+        expiredSubscriptions: expiredCount > 0 ? expiredCount : 0,
+        monthlyRevenue: '\$${_extractValue(statsDataMap, ['monthlyRevenue', 'monthly_revenue']) ?? '0'}',
+        renewalRate: '${_extractValue(statsDataMap, ['renewalRate', 'renewal_rate']) ?? '0'}%',
+        revenueTrend: _extractRevenueTrend(statsDataMap),
         membershipBreakdown: MembershipBreakdown(
-          active: (statsData['membershipBreakdown']?['active'] ?? 0).toInt(),
-          expiring: (statsData['membershipBreakdown']?['expiring'] ?? 0).toInt(),
-          expired: (statsData['membershipBreakdown']?['expired'] ?? 0).toInt(),
+          active: _extractInt(statsDataMap, [
+            'membershipBreakdown.active', 'membership_breakdown.active'
+          ]),
+          expiring: expiringList.length > 0 ? expiringList.length - 1 : 0,
+          expired: expiredCount > 0 ? expiredCount : 0,
         ),
       );
 
-      final expiringList = (expiringData as List?)
-              ?.map<ExpiringSubscription>((item) {
-            final data = item as Map<String, dynamic>;
-            return ExpiringSubscription(
-              memberId: data['memberId']?.toString() ?? data['member_id']?.toString() ?? '',
-              memberName: data['memberName']?.toString() ?? data['member_name']?.toString() ?? '',
-              email: data['email']?.toString() ?? '',
-              phone: data['phone']?.toString() ?? '',
-              expiryDate: DateTime.tryParse(
-                    data['expiryDate']?.toString() ?? data['expiry_date']?.toString() ?? '',
-                  ) ??
-                  DateTime.now(),
-              status: data['status']?.toString() ?? '',
-            );
-          }).toList() ??
-          [];
+      final expiringSubscriptions = expiringList
+          .map<ExpiringSubscription>((item) {
+        final data = item as Map<String, dynamic>;
+        return ExpiringSubscription(
+          memberId: data['memberId']?.toString() ??
+                    data['member_id']?.toString() ??
+                    data['userId']?.toString() ??
+                    data['user_id']?.toString() ?? '',
+          memberName: data['memberName']?.toString() ??
+                      data['member_name']?.toString() ??
+                      data['fullName']?.toString() ??
+                      data['full_name']?.toString() ?? '',
+          email: data['email']?.toString() ?? '',
+          phone: data['phone']?.toString() ?? '',
+          expiryDate: DateTime.tryParse(
+                data['expiryDate']?.toString() ??
+                data['expiry_date']?.toString() ?? '',
+              ) ?? DateTime.now(),
+          status: data['status']?.toString() ?? '',
+        );
+      }).toList();
+
+      print('✅ Dashboard loaded - Expiring count: ${stats.expiringSubscriptions}');
 
       state = state.copyWith(
         isLoading: false,
         stats: stats,
-        expiringSubscriptions: expiringList,
+        expiringSubscriptions: expiringSubscriptions,
         errorMessage: null,
       );
     } catch (e) {
+      print('❌ Dashboard error: $e');
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Failed to load dashboard data',
+        errorMessage: 'Failed to load dashboard data: ${e.toString()}',
       );
     }
+  }
+
+  int _extractInt(dynamic data, List<String> keys) {
+    if (data is! Map<String, dynamic>) return 0;
+
+    for (final key in keys) {
+      if (key.contains('.')) {
+        final parts = key.split('.');
+        dynamic current = data;
+        for (final part in parts) {
+          if (current is Map<String, dynamic> && current.containsKey(part)) {
+            current = current[part];
+          } else {
+            current = null;
+            break;
+          }
+        }
+        if (current != null) {
+          return (current is int) ? current : int.tryParse(current.toString()) ?? 0;
+        }
+      } else if (data.containsKey(key)) {
+        final value = data[key];
+        return (value is int) ? value : int.tryParse(value.toString()) ?? 0;
+      }
+    }
+    return 0;
+  }
+
+  dynamic _extractValue(dynamic data, List<String> keys) {
+    if (data is! Map<String, dynamic>) return null;
+
+    for (final key in keys) {
+      if (data.containsKey(key)) {
+        return data[key];
+      }
+    }
+    return null;
+  }
+
+  List<RevenueData> _extractRevenueTrend(dynamic data) {
+    if (data is! Map<String, dynamic>) return [];
+
+    final trendData = data['revenueTrend'] ?? data['revenue_trend'];
+    if (trendData is! List) return [];
+
+    return trendData.map<RevenueData>((item) {
+      final itemData = item as Map<String, dynamic>;
+      return RevenueData(
+        month: itemData['month']?.toString() ?? '',
+        amount: (itemData['amount'] ?? 0).toDouble(),
+      );
+    }).toList();
   }
 
   Future<void> refreshDashboard() async {

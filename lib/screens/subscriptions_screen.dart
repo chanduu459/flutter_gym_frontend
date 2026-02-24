@@ -374,44 +374,202 @@ class _SubscriptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final daysRemaining = subscription.daysRemaining ?? 0;
+
+    // Determine status color and text based on days remaining
+    Color statusColor;
+    String statusText;
+    if (daysRemaining < 0) {
+      statusColor = Colors.red;
+      statusText = 'Expired';
+    } else if (daysRemaining == 0) {
+      statusColor = Colors.red;
+      statusText = 'Expires today';
+    } else if (daysRemaining <= 3) {
+      statusColor = Colors.deepOrange;
+      statusText = 'Expires in $daysRemaining days';
+    } else if (daysRemaining <= 7) {
+      statusColor = Colors.orange;
+      statusText = 'Expires in $daysRemaining days';
+    } else {
+      statusColor = Colors.green;
+      statusText = '$daysRemaining days remaining';
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              subscription.memberName,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subscription.planName,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[700],
-              ),
-            ),
-            const SizedBox(height: 10),
+            // Member name and status badge
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 6),
-                Text(
-                  _formatDate(subscription.startDate),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[700],
+                Expanded(
+                  child: Text(
+                    subscription.memberName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: statusColor.withValues(alpha: 0.5), width: 1),
+                  ),
+                  child: Text(
+                    statusText,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: statusColor,
+                    ),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+
+            // Plan name and price
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  subscription.planName,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[800],
+                  ),
+                ),
+                if (subscription.planPrice != null)
+                  Text(
+                    '\$${subscription.planPrice!.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Dates section
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Column(
+                children: [
+                  // Start date
+                  Row(
+                    children: [
+                      Icon(Icons.play_circle_outline, size: 18, color: Colors.blue[600]),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Started:',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        _formatDate(subscription.startDate),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (subscription.expiryDate != null) ...[
+                    const SizedBox(height: 8),
+                    Divider(height: 1, color: Colors.grey[300]),
+                    const SizedBox(height: 8),
+                    // Expiry date
+                    Row(
+                      children: [
+                        Icon(Icons.event_busy, size: 18, color: statusColor),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Expires:',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          _formatDate(subscription.expiryDate!),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: statusColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            // Days remaining indicator (large)
+            if (subscription.expiryDate != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      statusColor.withValues(alpha: 0.1),
+                      statusColor.withValues(alpha: 0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.access_time, size: 18, color: statusColor),
+                    const SizedBox(width: 8),
+                    Text(
+                      daysRemaining < 0
+                          ? 'Expired ${daysRemaining.abs()} days ago'
+                          : daysRemaining == 0
+                              ? 'Expires today!'
+                              : '$daysRemaining days remaining',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: statusColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

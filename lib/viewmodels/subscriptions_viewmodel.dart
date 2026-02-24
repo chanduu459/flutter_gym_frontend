@@ -13,12 +13,20 @@ class Subscription {
   final String memberName;
   final String planName;
   final DateTime startDate;
+  final DateTime? expiryDate;
+  final int? daysRemaining;
+  final String? status;
+  final double? planPrice;
 
   Subscription({
     required this.id,
     required this.memberName,
     required this.planName,
     required this.startDate,
+    this.expiryDate,
+    this.daysRemaining,
+    this.status,
+    this.planPrice,
   });
 
   Subscription copyWith({
@@ -26,12 +34,20 @@ class Subscription {
     String? memberName,
     String? planName,
     DateTime? startDate,
+    DateTime? expiryDate,
+    int? daysRemaining,
+    String? status,
+    double? planPrice,
   }) {
     return Subscription(
       id: id ?? this.id,
       memberName: memberName ?? this.memberName,
       planName: planName ?? this.planName,
       startDate: startDate ?? this.startDate,
+      expiryDate: expiryDate ?? this.expiryDate,
+      daysRemaining: daysRemaining ?? this.daysRemaining,
+      status: status ?? this.status,
+      planPrice: planPrice ?? this.planPrice,
     );
   }
 
@@ -74,14 +90,54 @@ class Subscription {
                       '').toString();
     }
 
+    // Extract plan price
+    double? planPriceValue;
+    if (plan != null && plan['price'] != null) {
+      planPriceValue = (plan['price'] is double)
+          ? plan['price'] as double
+          : double.tryParse(plan['price'].toString());
+    }
+    if (planPriceValue == null && json['plan_price'] != null) {
+      planPriceValue = (json['plan_price'] is double)
+          ? json['plan_price'] as double
+          : double.tryParse(json['plan_price'].toString());
+    }
+    if (planPriceValue == null && json['planPrice'] != null) {
+      planPriceValue = (json['planPrice'] is double)
+          ? json['planPrice'] as double
+          : double.tryParse(json['planPrice'].toString());
+    }
+
+    // Parse dates
+    final startDate = DateTime.tryParse(
+          (json['start_date'] ?? json['startDate'] ?? '').toString(),
+        ) ?? DateTime.now();
+
+    final expiryDate = DateTime.tryParse(
+          (json['expiry_date'] ?? json['expiryDate'] ?? '').toString(),
+        );
+
+    // Calculate days remaining if expiry date exists
+    int? daysRemaining;
+    if (expiryDate != null) {
+      final now = DateTime.now();
+      final difference = expiryDate.difference(now);
+      daysRemaining = difference.inDays;
+    } else if (json['days_remaining'] != null) {
+      daysRemaining = int.tryParse(json['days_remaining'].toString());
+    } else if (json['daysRemaining'] != null) {
+      daysRemaining = int.tryParse(json['daysRemaining'].toString());
+    }
+
     return Subscription(
       id: (json['id'] ?? json['_id'] ?? '').toString(),
       memberName: memberNameValue,
       planName: planNameValue,
-      startDate: DateTime.tryParse(
-            (json['start_date'] ?? json['startDate'] ?? '').toString(),
-          ) ??
-          DateTime.now(),
+      startDate: startDate,
+      expiryDate: expiryDate,
+      daysRemaining: daysRemaining,
+      status: json['status']?.toString(),
+      planPrice: planPriceValue,
     );
   }
 }
