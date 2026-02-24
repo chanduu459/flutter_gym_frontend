@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../viewmodels/drawer_viewmodel.dart';
+import '../viewmodels/login_viewmodel.dart';
 
 class AppDrawer extends ConsumerWidget {
   const AppDrawer({super.key});
@@ -9,6 +10,17 @@ class AppDrawer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final drawerState = ref.watch(drawerViewModelProvider);
     final drawerViewModel = ref.read(drawerViewModelProvider.notifier);
+    final loginState = ref.watch(loginViewModelProvider);
+
+    // Update drawer with user data from login state
+    if (loginState.userName != null && loginState.userRole != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        drawerViewModel.updateUserData(
+          loginState.userName,
+          loginState.userRole,
+        );
+      });
+    }
 
     return Drawer(
       child: Container(
@@ -244,7 +256,11 @@ class AppDrawer extends ConsumerWidget {
                         ),
                       ),
                       onPressed: () {
+                        // Clear drawer state
                         drawerViewModel.logout();
+                        // Clear login state
+                        ref.read(loginViewModelProvider.notifier).logout();
+                        // Navigate to auth screen
                         Navigator.of(context)
                             .pushReplacementNamed('/auth');
                       },

@@ -17,7 +17,7 @@ class ApiService {
         _baseUrl = baseUrl ??
             const String.fromEnvironment(
               'API_URL',
-              defaultValue: 'http://10.198.164.90:3001',
+              defaultValue: 'http://10.169.60.90:3001',
             );
 
   final http.Client _client;

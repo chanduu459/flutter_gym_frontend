@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -16,7 +17,7 @@ class ApiService {
         _baseUrl = baseUrl ??
             const String.fromEnvironment(
               'API_URL',
-              defaultValue: 'http://10.198.164.90:3001',
+              defaultValue: 'http://10.169.60.90:3001',
             );
 
   final http.Client _client;
@@ -102,6 +103,9 @@ class ApiService {
     File? file,
     String? fileFieldName,
   }) async {
+    print('🌐 Multipart request to: $_baseUrl$endpoint');
+    print('📋 Fields: $fields');
+
     final uri = Uri.parse('$_baseUrl$endpoint');
     final request = http.MultipartRequest('POST', uri);
 
@@ -110,38 +114,90 @@ class ApiService {
 
     if (_token != null) {
       request.headers['Authorization'] = 'Bearer $_token';
+      print('🔑 Token added to request');
     }
 
     // Add file if provided
     if (file != null && fileFieldName != null && file.existsSync()) {
       try {
-        request.files.add(await http.MultipartFile.fromPath(
+        print('📎 Adding file: $fileFieldName');
+        print('📁 File path: ${file.path}');
+        print('📏 File size: ${file.lengthSync()} bytes');
+
+        // Determine MIME type from file extension or path
+        String mimeType = 'image/jpeg'; // Default to JPEG
+        final filePath = file.path.toLowerCase();
+
+        if (filePath.endsWith('.png')) {
+          mimeType = 'image/png';
+        } else if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) {
+          mimeType = 'image/jpeg';
+        } else if (filePath.contains('jpg') || filePath.contains('jpeg')) {
+          // Handle cases like "scaled_xxx.jpg" or "camera-capture-xxx.jpg"
+          mimeType = 'image/jpeg';
+        } else if (filePath.contains('png')) {
+          mimeType = 'image/png';
+        } else {
+          // If extension not clear, check file signature (magic bytes)
+          // Read first few bytes to detect file type
+          final bytes = file.readAsBytesSync();
+          if (bytes.length >= 4) {
+            // PNG signature: 89 50 4E 47
+            if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
+              mimeType = 'image/png';
+            }
+            // JPEG signature: FF D8 FF
+            else if (bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) {
+              mimeType = 'image/jpeg';
+            }
+          }
+        }
+
+        print('📝 Detected MIME type: $mimeType');
+        print('📝 File name: ${file.path.split('/').last}');
+
+        // Add file with explicit MIME type
+        final multipartFile = await http.MultipartFile.fromPath(
           fileFieldName,
           file.path,
-        ));
+          contentType: MediaType.parse(mimeType),
+        );
+
+        request.files.add(multipartFile);
+
+        print('✅ File added to request with MIME type: $mimeType');
       } catch (e) {
+        print('🔴 Failed to add file: ${e.toString()}');
         throw ApiException('Failed to add file to request: ${e.toString()}');
       }
     }
 
     http.StreamedResponse streamed;
     try {
+      print('📤 Sending multipart request...');
       streamed = await request.send();
+      print('📥 Response received - Status: ${streamed.statusCode}');
     } catch (e) {
+      print('🔴 Failed to send request: ${e.toString()}');
       throw ApiException('Failed to send request: ${e.toString()}');
     }
 
     final response = await http.Response.fromStream(streamed);
+    print('📄 Response body length: ${response.body.length}');
 
     if (response.body.isEmpty) {
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        print('✅ Empty response with success status');
         return null;
       }
+      print('🔴 Empty response with error status: ${response.statusCode}');
       throw ApiException('API request failed: empty response');
     }
 
     // Check if response is HTML (error page) instead of JSON
     if (response.body.trim().startsWith('<')) {
+      print('🔴 Server returned HTML instead of JSON');
+      print('📄 Response preview: ${response.body.substring(0, 200)}...');
       throw ApiException(
         'Server error: ${response.statusCode}. Please check your backend API.'
       );
@@ -150,15 +206,20 @@ class ApiService {
     dynamic decoded;
     try {
       decoded = jsonDecode(response.body);
+      print('✅ JSON decoded successfully');
     } catch (e) {
+      print('🔴 Failed to decode JSON: ${e.toString()}');
+      print('📄 Response body: ${response.body}');
       throw ApiException('Invalid response from server: ${e.toString()}');
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final message = _extractErrorMessage(decoded) ?? 'API request failed';
+      print('🔴 Error response: $message');
       throw ApiException('$message (Status: ${response.statusCode})');
     }
 
+    print('✅ Multipart request successful');
     return _unwrapData(decoded);
   }
 
@@ -204,8 +265,17 @@ class ApiService {
     File? faceImage,
   }) async {
     try {
+      print('🔵 Creating member: $fullName');
+      print('📧 Email: $email');
+      print('📞 Phone: $phone');
+      print('📸 Has image: ${faceImage != null}');
+
       // If we have a file, use multipart form data
       if (faceImage != null && faceImage.existsSync()) {
+        print('📤 Using multipart upload for image');
+        print('📁 Image path: ${faceImage.path}');
+        print('📏 Image size: ${faceImage.lengthSync()} bytes');
+
         final fields = <String, String>{
           'fullName': fullName,
           'email': email,
@@ -223,13 +293,28 @@ class ApiService {
           fileFieldName: 'faceImage',
         );
 
+        print('✅ Multipart response received');
+        print('📦 Response type: ${data.runtimeType}');
+        print('📦 Response data: $data');
+
+        if (data == null) {
+          print('⚠️ Response is null, returning empty map');
+          return {};
+        }
+
         if (data is Map<String, dynamic>) {
+          print('✅ Response is already Map<String, dynamic>');
           return data;
         } else if (data is Map) {
+          print('✅ Response is Map, casting to Map<String, dynamic>');
           return data.cast<String, dynamic>();
         }
+
+        print('⚠️ Unexpected response type, returning empty map');
         return {};
       } else {
+        print('📤 Using JSON (no image)');
+
         // No file - use regular JSON request
         final payload = <String, dynamic>{
           'fullName': fullName,
@@ -247,6 +332,9 @@ class ApiService {
           body: jsonEncode(payload),
         );
 
+        print('✅ JSON response received');
+        print('📦 Response data: $data');
+
         if (data is Map<String, dynamic>) {
           return data;
         } else if (data is Map) {
@@ -255,6 +343,7 @@ class ApiService {
         return {};
       }
     } catch (e) {
+      print('🔴 Error creating member: ${e.toString()}');
       throw ApiException('Failed to create member: ${e.toString()}');
     }
   }

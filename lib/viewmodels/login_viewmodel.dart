@@ -10,6 +10,9 @@ class LoginState {
   final bool isLoggedIn;
   final bool isLoginSuccessful;
   final String? token;
+  final String? userId;
+  final String? userName;
+  final String? userRole;
 
   LoginState({
     this.email = '',
@@ -20,6 +23,9 @@ class LoginState {
     this.isLoggedIn = false,
     this.isLoginSuccessful = false,
     this.token,
+    this.userId,
+    this.userName,
+    this.userRole,
   });
 
   LoginState copyWith({
@@ -31,6 +37,9 @@ class LoginState {
     bool? isLoggedIn,
     bool? isLoginSuccessful,
     String? token,
+    String? userId,
+    String? userName,
+    String? userRole,
   }) {
     return LoginState(
       email: email ?? this.email,
@@ -41,6 +50,9 @@ class LoginState {
       isLoggedIn: isLoggedIn ?? this.isLoggedIn,
       isLoginSuccessful: isLoginSuccessful ?? this.isLoginSuccessful,
       token: token ?? this.token,
+      userId: userId ?? this.userId,
+      userName: userName ?? this.userName,
+      userRole: userRole ?? this.userRole,
     );
   }
 }
@@ -88,19 +100,30 @@ class LoginViewModel extends StateNotifier<LoginState> {
       );
 
       final token = response['token']?.toString();
-      if (token != null) {
+      final user = response['user'] as Map<String, dynamic>?;
+
+      if (token != null && user != null) {
         _api.setToken(token);
+
+        // Extract user data from response
+        final userId = user['id']?.toString();
+        final userName = user['fullName']?.toString() ?? user['full_name']?.toString();
+        final userRole = user['role']?.toString();
+
         state = state.copyWith(
           isLoading: false,
           isLoggedIn: true,
           isLoginSuccessful: true,
           token: token,
+          userId: userId,
+          userName: userName,
+          userRole: userRole,
           errorMessage: null,
         );
       } else {
         state = state.copyWith(
           isLoading: false,
-          errorMessage: 'No token received from server',
+          errorMessage: 'Invalid response from server',
         );
       }
     } catch (e) {
@@ -117,6 +140,11 @@ class LoginViewModel extends StateNotifier<LoginState> {
 
   void resetLoginSuccess() {
     state = state.copyWith(isLoginSuccessful: false);
+  }
+
+  void logout() {
+    _api.setToken(null);
+    state = LoginState();
   }
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'login_viewmodel.dart';
 
 enum MenuItem {
   dashboard,
@@ -20,8 +21,8 @@ class DrawerState {
   DrawerState({
     this.selectedItem,
     this.isDrawerOpen = false,
-    this.userName = 'pakam chandana',
-    this.userRole = 'Owner',
+    this.userName = 'Guest',
+    this.userRole = 'User',
   });
 
   DrawerState copyWith({
@@ -40,7 +41,31 @@ class DrawerState {
 }
 
 class DrawerViewModel extends StateNotifier<DrawerState> {
-  DrawerViewModel() : super(DrawerState());
+  DrawerViewModel(this._ref) : super(DrawerState()) {
+    _loadUserData();
+  }
+
+  final Ref _ref;
+
+  void _loadUserData() {
+    // Watch login state to get user data
+    final loginState = _ref.read(loginViewModelProvider);
+    if (loginState.userName != null && loginState.userRole != null) {
+      state = state.copyWith(
+        userName: loginState.userName,
+        userRole: loginState.userRole,
+      );
+    }
+  }
+
+  void updateUserData(String? userName, String? userRole) {
+    if (userName != null && userRole != null) {
+      state = state.copyWith(
+        userName: userName,
+        userRole: userRole,
+      );
+    }
+  }
 
   void toggleDrawer() {
     state = state.copyWith(isDrawerOpen: !state.isDrawerOpen);
@@ -66,6 +91,6 @@ class DrawerViewModel extends StateNotifier<DrawerState> {
 
 final drawerViewModelProvider =
     StateNotifierProvider<DrawerViewModel, DrawerState>((ref) {
-  return DrawerViewModel();
+  return DrawerViewModel(ref);
 });
 

@@ -192,6 +192,7 @@ class MembersViewModel extends StateNotifier<MembersState> {
       String? faceEmbeddingString;
       if (faceImageFile != null && faceImageFile.existsSync()) {
         try {
+          print('🔍 Extracting face embedding from image...');
           final embedding =
               await FaceEmbeddingService.extractFaceEmbedding(faceImageFile);
 
@@ -200,13 +201,16 @@ class MembersViewModel extends StateNotifier<MembersState> {
             // Serialize embedding to double precision string format
             faceEmbeddingString =
                 FaceEmbeddingService.serializeEmbedding(embedding);
+            print('✅ Face embedding extracted: ${faceEmbeddingString.substring(0, 50)}...');
           }
         } catch (e) {
+          print('⚠️ Embedding extraction error: ${e.toString()}');
           // Log embedding extraction error but continue with member creation
           // Silently fail - member still created without embedding
         }
       }
 
+      print('📤 Calling API to create member...');
       final created = await _api.createMember(
         fullName: fullName,
         email: email,
@@ -215,23 +219,42 @@ class MembersViewModel extends StateNotifier<MembersState> {
         faceImage: faceImageFile,
       );
 
+      print('✅ Member created successfully!');
+      print('📦 Response data: $created');
+      print('🆔 Member ID: ${created['id']}');
+      print('📧 Email: ${created['email']}');
+      print('📸 Face image URL: ${created['face_image']}');
+
+      if (created['face_embedding'] != null) {
+        final embStr = created['face_embedding'].toString();
+        print('🔢 Face embedding (first 50 chars): ${embStr.length > 50 ? embStr.substring(0, 50) : embStr}...');
+      }
+
       // Add embedding data to response if we extracted it locally
       if (faceEmbeddingString != null && !created.containsKey('face_embedding')) {
         created['face_embedding'] = faceEmbeddingString;
+        print('📝 Added local embedding to response');
       }
 
+      print('🔄 Parsing member from JSON...');
       final newMember = Member.fromJson(created);
+      print('✅ Member parsed: ${newMember.fullName} (${newMember.id})');
 
+      print('📋 Adding to members list (current count: ${state.members.length})');
       state = state.copyWith(
         isAddingMember: false,
         members: [...state.members, newMember],
         errorMessage: null,
       );
+      print('✅ Member added to list! New count: ${state.members.length}');
     } catch (e) {
+      print('🔴 ERROR in addMember: ${e.toString()}');
+      print('🔴 Error type: ${e.runtimeType}');
       state = state.copyWith(
         isAddingMember: false,
         errorMessage: 'Failed to add member: ${e.toString()}',
       );
+      rethrow; // Rethrow to show error in UI
     }
   }
 

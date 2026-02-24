@@ -185,6 +185,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
+              scrollable: true,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -195,7 +196,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              content: SingleChildScrollView(
+              content: SizedBox(
+                width: double.maxFinite,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -389,21 +391,37 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            // Image preview - centered with proper sizing
-                            if (File(selectedFaceImage!).existsSync())
-                              Center(
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: Image.file(
-                                    File(selectedFaceImage!),
-                                    height: 180,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                  ),
+                            // Image preview - constrained size
+                            Container(
+                              width: double.infinity,
+                              height: 180,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(6),
+                                color: Colors.white,
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: Image.file(
+                                  File(selectedFaceImage!),
+                                  height: 180,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  filterQuality: FilterQuality.low,
+                                  cacheWidth: 500,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: Colors.grey[200],
+                                      child: Icon(
+                                        Icons.image,
+                                        color: Colors.grey[400],
+                                        size: 80,
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
-                            if (File(selectedFaceImage!).existsSync())
-                              const SizedBox(height: 12),
+                            ),
+                            const SizedBox(height: 12),
                             // File info
                             Container(
                               width: double.infinity,
