@@ -258,6 +258,81 @@ class MembersViewModel extends StateNotifier<MembersState> {
     }
   }
 
+  Future<void> updateMember({
+    required String memberId,
+    required String fullName,
+    required String email,
+    required String phone,
+    File? faceImage,
+  }) async {
+    try {
+      state = state.copyWith(isAddingMember: true, errorMessage: null);
+
+      if (fullName.isEmpty) {
+        state = state.copyWith(
+          isAddingMember: false,
+          errorMessage: 'Please enter full name',
+        );
+        return;
+      }
+
+      if (email.isEmpty || !email.contains('@')) {
+        state = state.copyWith(
+          isAddingMember: false,
+          errorMessage: 'Please enter valid email',
+        );
+        return;
+      }
+
+      if (phone.isEmpty) {
+        state = state.copyWith(
+          isAddingMember: false,
+          errorMessage: 'Please enter phone number',
+        );
+        return;
+      }
+
+      // Call API to update member
+      final updated = await _api.updateMember(
+        memberId: memberId,
+        fullName: fullName,
+        email: email,
+        phone: phone,
+        faceImage: faceImage,
+      );
+
+      print('✅ Update response received');
+      print('📦 Response: $updated');
+
+      // Update the member in the list
+      final updatedMembers = state.members.map((member) {
+        if (member.id == memberId) {
+          return member.copyWith(
+            fullName: fullName,
+            email: email,
+            phone: phone,
+          );
+        }
+        return member;
+      }).toList();
+
+      state = state.copyWith(
+        isAddingMember: false,
+        members: updatedMembers,
+        errorMessage: null,
+      );
+      print('✅ Member updated in list!');
+    } catch (e) {
+      print('🔴 ERROR in updateMember: ${e.toString()}');
+      print('🔴 Error type: ${e.runtimeType}');
+      state = state.copyWith(
+        isAddingMember: false,
+        errorMessage: 'Failed to update member: ${e.toString()}',
+      );
+      rethrow; // Rethrow to show error in UI
+    }
+  }
+
   void clearError() {
     state = state.copyWith(errorMessage: null);
   }

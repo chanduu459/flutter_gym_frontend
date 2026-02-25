@@ -160,7 +160,12 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                         itemCount: membersState.filteredMembers.length,
                         itemBuilder: (context, index) {
                           final member = membersState.filteredMembers[index];
-                          return _MemberCard(member: member);
+                          return _MemberCard(
+                            member: member,
+                            onEdit: (memberToEdit) {
+                              _showEditMemberDialog(context, memberToEdit);
+                            },
+                          );
                         },
                       ),
           ),
@@ -585,12 +590,329 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       },
     );
   }
+
+  void _showEditMemberDialog(BuildContext context, Member memberToEdit) {
+    final membersViewModel = ref.read(membersViewModelProvider.notifier);
+    final fullNameController = TextEditingController(text: memberToEdit.fullName);
+    final emailController = TextEditingController(text: memberToEdit.email);
+    final phoneController = TextEditingController(text: memberToEdit.phone);
+    String? selectedFaceImage;
+    bool isUpdating = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              scrollable: true,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              title: const Text(
+                'Edit Member',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Update member information.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Full Name
+                    const Text(
+                      'Full Name',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: fullNameController,
+                      decoration: InputDecoration(
+                        hintText: 'John Doe',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Email
+                    const Text(
+                      'Email',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: emailController,
+                      decoration: InputDecoration(
+                        hintText: 'john@example.com',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Phone
+                    const Text(
+                      'Phone',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: phoneController,
+                      decoration: InputDecoration(
+                        hintText: '+1 (555) 123-4567',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Face Image (optional)
+                    const Text(
+                      'Face Image (optional)',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.upload_file),
+                            label: const Text('Upload File'),
+                            onPressed: () async {
+                              final picker = ImagePicker();
+                              final image = await picker.pickImage(
+                                source: ImageSource.gallery,
+                                imageQuality: 85,
+                              );
+                              if (image != null) {
+                                setState(() {
+                                  selectedFaceImage = image.path;
+                                });
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                          'Image selected: ${image.name}'),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (selectedFaceImage != null)
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(top: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green[50],
+                          border: Border.all(color: Colors.green[300]!),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.check_circle,
+                                    color: Colors.green[600], size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Face Image Selected',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.green[700],
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        selectedFaceImage!.split('/').last,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.green[600],
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              width: double.infinity,
+                              height: 180,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(6),
+                                color: Colors.white,
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: Image.file(
+                                  File(selectedFaceImage!),
+                                  height: 180,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  filterQuality: FilterQuality.low,
+                                  cacheWidth: 500,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: Colors.grey[200],
+                                      child: Icon(
+                                        Icons.image,
+                                        color: Colors.grey[400],
+                                        size: 80,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isUpdating ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: isUpdating
+                      ? null
+                      : () async {
+                          setState(() {
+                            isUpdating = true;
+                          });
+
+                          try {
+                            final fullName = fullNameController.text.trim();
+                            final email = emailController.text.trim();
+                            final phone = phoneController.text.trim();
+
+                            if (fullName.isEmpty ||
+                                email.isEmpty ||
+                                phone.isEmpty) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        'Please fill in all required fields'),
+                                  ),
+                                );
+                              }
+                              setState(() {
+                                isUpdating = false;
+                              });
+                              return;
+                            }
+
+                            // Call update member method
+                            await membersViewModel.updateMember(
+                              memberId: memberToEdit.id,
+                              fullName: fullName,
+                              email: email,
+                              phone: phone,
+                              faceImage: selectedFaceImage != null
+                                  ? File(selectedFaceImage!)
+                                  : null,
+                            );
+
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content:
+                                      Text('Member updated successfully!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Failed to update member: ${e.toString()}',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              setState(() {
+                                isUpdating = false;
+                              });
+                            }
+                          }
+                        },
+                  child: isUpdating
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text('Update Member'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 }
 
 class _MemberCard extends StatelessWidget {
   final Member member;
+  final Function(Member)? onEdit;
 
-  const _MemberCard({required this.member});
+  const _MemberCard({
+    required this.member,
+    this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -602,13 +924,31 @@ class _MemberCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              member.fullName,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
+            // Name and Edit Button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    member.fullName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
+                  onPressed: () {
+                    if (onEdit != null) {
+                      onEdit!(member);
+                    }
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Row(

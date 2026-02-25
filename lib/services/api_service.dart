@@ -102,12 +102,13 @@ class ApiService {
     required Map<String, String> fields,
     File? file,
     String? fileFieldName,
+    String method = 'POST',
   }) async {
-    print('🌐 Multipart request to: $_baseUrl$endpoint');
+    print('🌐 Multipart request to: $_baseUrl$endpoint (Method: $method)');
     print('📋 Fields: $fields');
 
     final uri = Uri.parse('$_baseUrl$endpoint');
-    final request = http.MultipartRequest('POST', uri);
+    final request = http.MultipartRequest(method, uri);
 
     // Add all fields
     request.fields.addAll(fields);
@@ -197,7 +198,8 @@ class ApiService {
     // Check if response is HTML (error page) instead of JSON
     if (response.body.trim().startsWith('<')) {
       print('🔴 Server returned HTML instead of JSON');
-      print('📄 Response preview: ${response.body.substring(0, 200)}...');
+      final previewLength = response.body.length > 200 ? 200 : response.body.length;
+      print('📄 Response preview: ${response.body.substring(0, previewLength)}...');
       throw ApiException(
         'Server error: ${response.statusCode}. Please check your backend API.'
       );
@@ -345,6 +347,85 @@ class ApiService {
     } catch (e) {
       print('🔴 Error creating member: ${e.toString()}');
       throw ApiException('Failed to create member: ${e.toString()}');
+    }
+  }
+
+  Future<Map<String, dynamic>> updateMember({
+    required String memberId,
+    required String fullName,
+    required String email,
+    required String phone,
+    File? faceImage,
+  }) async {
+    try {
+      print('🔵 Updating member: $memberId');
+      print('📧 Email: $email');
+      print('📞 Phone: $phone');
+      print('📸 Has image: ${faceImage != null}');
+
+      // If we have a file, use multipart form data
+      if (faceImage != null && faceImage.existsSync()) {
+        print('📤 Using multipart upload for image');
+        print('📁 Image path: ${faceImage.path}');
+        print('📏 Image size: ${faceImage.lengthSync()} bytes');
+
+        final fields = <String, String>{
+          'fullName': fullName,
+          'email': email,
+          'phone': phone,
+        };
+
+        final data = await _multipart(
+          '/api/members/$memberId',
+          fields: fields,
+          file: faceImage,
+          fileFieldName: 'faceImage',
+          method: 'PUT',
+        );
+
+        print('✅ Multipart response received');
+        print('📦 Response type: ${data.runtimeType}');
+        print('📦 Response data: $data');
+
+        if (data == null) {
+          return {};
+        }
+
+        if (data is Map<String, dynamic>) {
+          return data;
+        } else if (data is Map) {
+          return data.cast<String, dynamic>();
+        }
+        return {};
+      } else {
+        // No image, use JSON request
+        print('📝 Using JSON update');
+
+        final payload = <String, dynamic>{
+          'fullName': fullName,
+          'email': email,
+          'phone': phone,
+        };
+
+        final data = await _request(
+          '/api/members/$memberId',
+          method: 'PUT',
+          body: jsonEncode(payload),
+        );
+
+        print('✅ JSON response received');
+        print('📦 Response data: $data');
+
+        if (data is Map<String, dynamic>) {
+          return data;
+        } else if (data is Map) {
+          return data.cast<String, dynamic>();
+        }
+        return {};
+      }
+    } catch (e) {
+      print('🔴 Error updating member: ${e.toString()}');
+      throw ApiException('Failed to update member: ${e.toString()}');
     }
   }
 
